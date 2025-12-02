@@ -1,4 +1,4 @@
-import { pipeline, env, RawImage, AutoModel, AutoProcessor } from '@huggingface/transformers';
+import { pipeline, env, RawImage } from '@huggingface/transformers';
 
 // Configure transformers.js
 env.allowLocalModels = false;
@@ -10,19 +10,15 @@ let embedder: any = null;
 export const initFaceDetector = async () => {
   if (!detector) {
     try {
-      // Use YOLOv9 - much faster and more accurate than DETR
-      const model = await AutoModel.from_pretrained('Xenova/yolov9-c', {
+      // Use YOLOv9 object detection pipeline
+      detector = await pipeline('object-detection', 'Xenova/yolov9-c', {
         device: 'webgpu',
       });
-      const processor = await AutoProcessor.from_pretrained('Xenova/yolov9-c');
-      detector = { model, processor };
     } catch (error) {
       console.warn('WebGPU not available for detector, falling back to CPU:', error);
-      const model = await AutoModel.from_pretrained('Xenova/yolov9-c', {
+      detector = await pipeline('object-detection', 'Xenova/yolov9-c', {
         device: 'cpu',
       });
-      const processor = await AutoProcessor.from_pretrained('Xenova/yolov9-c');
-      detector = { model, processor };
     }
   }
   return detector;
@@ -87,7 +83,7 @@ const assessFaceQuality = (canvas: HTMLCanvasElement): 'high' | 'medium' | 'low'
 
 export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace[]> => {
   try {
-    const { model, processor } = await initFaceDetector();
+    const detector = await initFaceDetector();
     const embedder = await initFaceEmbedder();
     
     return new Promise((resolve) => {
@@ -95,26 +91,16 @@ export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace
       img.crossOrigin = "anonymous";
       img.onload = async () => {
         try {
-          // Process image with YOLOv9
-          const image = await RawImage.read(imageUrl);
-          const { pixel_values } = await processor(image);
-          const { outputs } = await model({ images: pixel_values });
-          const predictions = outputs.tolist();
-          
-          // Filter for person detections with higher confidence threshold
+          // Run YOLOv9 object detection
+          const predictions: any[] = await detector(imageUrl, { threshold: 0.3 });
+
+          // Filter for person detections
           let detections = predictions
-            .filter((pred: any) => {
-              const [xmin, ymin, xmax, ymax, score, classId] = pred;
-              // Class 0 is 'person' in YOLO models
-              return classId === 0 && score > 0.5;
-            })
-            .map((pred: any) => {
-              const [xmin, ymin, xmax, ymax, score] = pred;
-              return {
-                box: { xmin, ymin, xmax, ymax },
-                score
-              };
-            });
+            .filter((pred: any) => pred.label?.toLowerCase().includes('person'))
+            .map((pred: any) => ({
+              box: pred.box,
+              score: pred.score,
+            }));
 
           // Fallback: if no person detected, treat whole image as one face
           if (!detections.length) {
