@@ -57,7 +57,7 @@ const Index = () => {
     });
 
     try {
-      const { granted } = await PhotoLibrary.requestPermissions();
+      const { granted } = await PhotoLibrary.requestPhotoPermissions();
       if (!granted) {
         toast({
           title: "Permission Denied",

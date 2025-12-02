@@ -5,7 +5,7 @@ import Photos
 @objc(PhotoLibraryPlugin)
 public class PhotoLibraryPlugin: CAPPlugin {
     
-    @objc public func requestPermissions(_ call: CAPPluginCall) {
+    @objc public func requestPhotoPermissions(_ call: CAPPluginCall) {
         PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
             call.resolve(["granted": status == .authorized])
         }

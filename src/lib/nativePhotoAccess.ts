@@ -9,7 +9,7 @@ export interface PhotoAsset {
 }
 
 export interface PhotoLibraryPlugin {
-  requestPermissions(): Promise<{ granted: boolean }>;
+  requestPhotoPermissions(): Promise<{ granted: boolean }>;
   getAllPhotos(options?: { includeHidden?: boolean }): Promise<{ photos: PhotoAsset[] }>;
   deletePhotos(options: { identifiers: string[] }): Promise<{ success: boolean; deletedCount: number }>;
   hidePhotos(options: { identifiers: string[] }): Promise<{ success: boolean; hiddenCount: number }>;
