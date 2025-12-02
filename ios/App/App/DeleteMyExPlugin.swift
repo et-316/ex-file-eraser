@@ -5,7 +5,7 @@ import Photos
 @objc(DeleteMyExPlugin)
 public class DeleteMyExPlugin: CAPPlugin {
     
-    @objc func hidePhotos(_ call: CAPPluginCall) {
+    @objc public func hidePhotos(_ call: CAPPluginCall) {
         guard let photoIdentifiers = call.getArray("identifiers", String.self) else {
             call.reject("Must provide photo identifiers")
             return
@@ -26,7 +26,7 @@ public class DeleteMyExPlugin: CAPPlugin {
         }
     }
     
-    @objc func deletePhotos(_ call: CAPPluginCall) {
+    @objc public func deletePhotos(_ call: CAPPluginCall) {
         guard let photoIdentifiers = call.getArray("identifiers", String.self) else {
             call.reject("Must provide photo identifiers")
             return
