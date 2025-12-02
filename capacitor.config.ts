@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.725b9661eea84b25a09a83c136bbc0ec',
+  appId: 'app.lovable.deletemyex',
   appName: 'Delete My Ex',
   webDir: 'dist',
   server: {
