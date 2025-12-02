@@ -432,16 +432,13 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       {/* Header */}
-      <div className="text-center mb-12 animate-fade-in">
+      <div className="text-center mb-8 animate-fade-in">
         <div className="inline-flex items-center gap-2 mb-4">
           <Heart className="w-8 h-8 text-primary" />
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-hero bg-clip-text text-transparent">
             Delete My Ex
           </h1>
         </div>
-        <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-          Use AI to remove your ex from your photo library. Fresh start, new memories.
-        </p>
       </div>
 
       {/* Loading Overlay with Progress */}
