@@ -5,13 +5,13 @@ import Photos
 @objc(PhotoLibraryPlugin)
 public class PhotoLibraryPlugin: CAPPlugin {
     
-    @objc func requestPermissions(_ call: CAPPluginCall) {
+    @objc public func requestPermissions(_ call: CAPPluginCall) {
         PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
             call.resolve(["granted": status == .authorized])
         }
     }
     
-    @objc func getAllPhotos(_ call: CAPPluginCall) {
+    @objc public func getAllPhotos(_ call: CAPPluginCall) {
         let includeHidden = call.getBool("includeHidden") ?? true
         
         PHPhotoLibrary.requestAuthorization(for: .readWrite) { [weak self] status in
@@ -101,7 +101,7 @@ public class PhotoLibraryPlugin: CAPPlugin {
         call.resolve(["photos": sortedPhotos])
     }
     
-    @objc func hidePhotos(_ call: CAPPluginCall) {
+    @objc public func hidePhotos(_ call: CAPPluginCall) {
         guard let identifiers = call.getArray("identifiers", String.self) else {
             call.reject("Must provide identifiers")
             return
@@ -142,7 +142,7 @@ public class PhotoLibraryPlugin: CAPPlugin {
         }
     }
     
-    @objc func deletePhotos(_ call: CAPPluginCall) {
+    @objc public func deletePhotos(_ call: CAPPluginCall) {
         guard let identifiers = call.getArray("identifiers", String.self) else {
             call.reject("Must provide identifiers")
             return
