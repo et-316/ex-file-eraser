@@ -1,4 +1,4 @@
-import { Download, Trash2 } from "lucide-react";
+import { Download, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Photo {
@@ -14,37 +14,78 @@ interface PhotoGalleryProps {
 
 export const PhotoGallery = ({ photos, onDownload }: PhotoGalleryProps) => {
   const cleanPhotos = photos.filter((p) => !p.hasEx);
-  const removedCount = photos.length - cleanPhotos.length;
+  const archivedPhotos = photos.filter((p) => p.hasEx);
 
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-6 animate-fade-in">
-      <div className="text-center space-y-4">
-        <div className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-primary rounded-full text-primary-foreground font-semibold shadow-glow">
-          <Trash2 className="w-5 h-5" />
-          <span>{removedCount} photo{removedCount !== 1 ? 's' : ''} removed</span>
+    <div className="w-full max-w-6xl mx-auto space-y-8 animate-fade-in">
+      {/* Clean Photos Section */}
+      <div className="space-y-6">
+        <div className="text-center space-y-4">
+          <h2 className="text-3xl font-bold">Fresh Start 🎉</h2>
+          <p className="text-muted-foreground">
+            {cleanPhotos.length} clean photo{cleanPhotos.length !== 1 ? 's' : ''} ready to download
+          </p>
         </div>
-        <h2 className="text-3xl font-bold">Fresh Start 🎉</h2>
-        <p className="text-muted-foreground">
-          Here are your cleaned photos. Download them all!
-        </p>
-      </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {cleanPhotos.map((photo) => (
-          <div
-            key={photo.id}
-            className="relative aspect-square rounded-2xl overflow-hidden shadow-soft hover:shadow-glow transition-all duration-300 hover:scale-105"
-          >
-            <img
-              src={photo.url}
-              alt="Clean photo"
-              className="w-full h-full object-cover"
-            />
+        {cleanPhotos.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {cleanPhotos.map((photo) => (
+              <div
+                key={photo.id}
+                className="relative aspect-square rounded-2xl overflow-hidden shadow-soft hover:shadow-glow transition-all duration-300 hover:scale-105"
+              >
+                <img
+                  src={photo.url}
+                  alt="Clean photo"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ))}
           </div>
-        ))}
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-lg text-muted-foreground">
+              All photos contained your ex. Check the archive below.
+            </p>
+          </div>
+        )}
       </div>
 
-      {cleanPhotos.length > 0 && (
+      {/* Archived Photos Section */}
+      {archivedPhotos.length > 0 && (
+        <div className="space-y-6 pt-8 border-t border-border">
+          <div className="text-center space-y-4">
+            <div className="inline-flex items-center gap-2 px-6 py-3 bg-muted rounded-full text-muted-foreground font-semibold">
+              <Archive className="w-5 h-5" />
+              <span>{archivedPhotos.length} photo{archivedPhotos.length !== 1 ? 's' : ''} archived</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              These photos will be saved in a separate "archived" folder
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {archivedPhotos.map((photo) => (
+              <div
+                key={photo.id}
+                className="relative aspect-square rounded-2xl overflow-hidden opacity-60 hover:opacity-80 transition-opacity shadow-soft"
+              >
+                <img
+                  src={photo.url}
+                  alt="Archived photo"
+                  className="w-full h-full object-cover grayscale"
+                />
+                <div className="absolute inset-0 bg-background/20 flex items-center justify-center">
+                  <Archive className="w-8 h-8 text-foreground/60" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Download Button */}
+      {photos.length > 0 && (
         <div className="flex justify-center pt-4">
           <Button
             onClick={onDownload}
@@ -52,16 +93,8 @@ export const PhotoGallery = ({ photos, onDownload }: PhotoGalleryProps) => {
             className="bg-gradient-secondary hover:opacity-90 text-secondary-foreground font-semibold px-8 shadow-soft"
           >
             <Download className="w-5 h-5 mr-2" />
-            Download All ({cleanPhotos.length})
+            Download All ({cleanPhotos.length} clean + {archivedPhotos.length} archived)
           </Button>
-        </div>
-      )}
-
-      {cleanPhotos.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-lg text-muted-foreground">
-            All photos contained your ex. Time for new memories! 📸
-          </p>
         </div>
       )}
     </div>
