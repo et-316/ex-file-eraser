@@ -4,12 +4,14 @@ import { FaceSelector } from "@/components/FaceSelector";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { DeleteConfirmation } from "@/components/DeleteConfirmation";
 import { Button } from "@/components/ui/button";
-import { Heart, Loader2 } from "lucide-react";
+import { Heart, Loader2, Scan } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { detectFacesInImage, processBatch, DetectedFace, cosineSimilarity } from "@/lib/faceDetection";
 import DeleteMyEx from "@/lib/nativePhotoDelete";
+import PhotoLibrary from "@/lib/nativePhotoAccess";
 import JSZip from "jszip";
 import { Progress } from "@/components/ui/progress";
+import { Capacitor } from "@capacitor/core";
 
 type Step = "upload" | "select" | "results";
 
@@ -35,7 +37,96 @@ const Index = () => {
   const [selectedExId, setSelectedExId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showHideConfirm, setShowHideConfirm] = useState(false);
+  const [isNative] = useState(Capacitor.isNativePlatform());
   const { toast } = useToast();
+
+  const handleScanLibrary = async () => {
+    if (!isNative) {
+      toast({
+        title: "Native App Required",
+        description: "Full library scanning requires the iOS app",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    toast({
+      title: "Scanning Photo Library...",
+      description: "This may take a few minutes for large libraries",
+    });
+
+    try {
+      const { granted } = await PhotoLibrary.requestPermissions();
+      if (!granted) {
+        toast({
+          title: "Permission Denied",
+          description: "Please grant photo library access in Settings",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      const { photos: libraryPhotos } = await PhotoLibrary.getAllPhotos({ includeHidden: true });
+      
+      toast({
+        title: `Found ${libraryPhotos.length} photos`,
+        description: "Now detecting faces...",
+      });
+
+      setProgress({ current: 0, total: libraryPhotos.length, stage: "detecting" });
+
+      const photoData = libraryPhotos.map((photo, idx) => ({
+        id: `photo-${idx}`,
+        url: photo.uri,
+        hasEx: false,
+        assetId: photo.identifier,
+      }));
+      setPhotos(photoData);
+
+      // Process in batches to detect faces
+      const results = await processBatch(libraryPhotos.map(p => p.uri), (current, total) => {
+        setProgress({ current, total, stage: "detecting" });
+      });
+      
+      const allFaces = results.flatMap((r) => r.faces);
+
+      // Deduplicate faces
+      const uniqueFaces = allFaces.filter((face, index, self) => 
+        index === self.findIndex((f) => {
+          if (face.embedding && f.embedding) {
+            const similarity = cosineSimilarity(face.embedding, f.embedding);
+            return similarity > 0.8;
+          } else {
+            const isSimilar = 
+              Math.abs(f.bbox.x - face.bbox.x) < 50 &&
+              Math.abs(f.bbox.y - face.bbox.y) < 50 &&
+              Math.abs(f.bbox.width - face.bbox.width) < 50;
+            return isSimilar;
+          }
+        })
+      );
+
+      setFaces(uniqueFaces);
+      setStep("select");
+      
+      toast({
+        title: "Scan Complete!",
+        description: `Found ${uniqueFaces.length} unique face${uniqueFaces.length !== 1 ? 's' : ''} in ${libraryPhotos.length} photos`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Scan Failed",
+        description: error instanceof Error ? error.message : "Failed to scan library",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setProgress(null);
+    }
+  };
 
   const handleFilesSelected = async (photosWithAssetIds: { file: File; assetId?: string }[]) => {
     setLoading(true);
@@ -381,7 +472,36 @@ const Index = () => {
 
       {/* Main Content */}
       <div className="container max-w-7xl mx-auto">
-        {step === "upload" && <UploadZone onFilesSelected={handleFilesSelected} />}
+        {step === "upload" && (
+          <div className="space-y-8">
+            {isNative && (
+              <div className="text-center space-y-4 animate-fade-in">
+                <Button
+                  onClick={handleScanLibrary}
+                  size="lg"
+                  className="bg-gradient-primary hover:opacity-90 text-primary-foreground font-semibold px-8 shadow-glow"
+                >
+                  <Scan className="w-5 h-5 mr-2" />
+                  Scan Entire Photo Library
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  Automatically find all photos containing your ex
+                </p>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      Or select specific photos
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <UploadZone onFilesSelected={handleFilesSelected} />
+          </div>
+        )}
         
         {step === "select" && (
           <FaceSelector faces={faces} onSelectEx={handleSelectEx} />
