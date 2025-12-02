@@ -112,6 +112,7 @@ const Index = () => {
   };
 
   const handleSelectEx = async (faceId: string) => {
+    console.log("handleSelectEx called with faceId:", faceId);
     setLoading(true);
     setProgress({ current: 0, total: photos.length, stage: "filtering" });
     setSelectedExId(faceId);
@@ -124,12 +125,18 @@ const Index = () => {
     try {
       // Find the selected face
       const selectedFace = faces.find((f) => f.id === faceId);
-      if (!selectedFace) return;
+      console.log("Selected face:", selectedFace);
+      if (!selectedFace) {
+        console.error("Selected face not found!");
+        throw new Error("Selected face not found");
+      }
 
       // Re-detect faces in each photo with progress tracking
+      console.log("Starting to process batch of photos...");
       const results = await processBatch(photos.map((p) => p.url), (current, total) => {
         setProgress({ current, total, stage: "filtering" });
       });
+      console.log("Batch processing complete, results:", results.length);
       
       const updatedPhotos = photos.map((photo, idx) => {
         const photoFaces = results[idx].faces;
@@ -152,6 +159,7 @@ const Index = () => {
         return { ...photo, hasEx };
       });
 
+      console.log("Updated photos:", updatedPhotos.filter(p => p.hasEx).length, "with ex");
       setPhotos(updatedPhotos);
       setStep("results");
       
@@ -161,10 +169,10 @@ const Index = () => {
         description: `Removed ${removedCount} photo${removedCount !== 1 ? 's' : ''} ✨`,
       });
     } catch (error) {
-      console.error(error);
+      console.error("Error in handleSelectEx:", error);
       toast({
         title: "Error",
-        description: "Failed to filter photos. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to filter photos. Please try again.",
         variant: "destructive",
       });
     } finally {

@@ -158,8 +158,13 @@ export const processBatch = async (
   const results = [];
   for (let i = 0; i < imageUrls.length; i++) {
     const url = imageUrls[i];
-    const faces = await detectFacesInImage(url);
-    results.push({ url, faces });
+    try {
+      const faces = await detectFacesInImage(url);
+      results.push({ url, faces });
+    } catch (error) {
+      console.error(`Error processing image ${i}:`, error);
+      results.push({ url, faces: [] });
+    }
     
     // Report progress
     if (onProgress) {
