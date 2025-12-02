@@ -8,7 +8,7 @@ let detector: any = null;
 let embedder: any = null;
 
 export const initFaceDetector = async () => {
-  if (!detector) {
+  if (detector === null) {
     try {
       // Use YOLOv9 object detection pipeline
       detector = await pipeline('object-detection', 'Xenova/yolov9-c', {
@@ -16,9 +16,14 @@ export const initFaceDetector = async () => {
       });
     } catch (error) {
       console.warn('WebGPU not available for detector, falling back to CPU:', error);
-      detector = await pipeline('object-detection', 'Xenova/yolov9-c', {
-        device: 'cpu',
-      });
+      try {
+        detector = await pipeline('object-detection', 'Xenova/yolov9-c', {
+          device: 'cpu',
+        });
+      } catch (cpuError) {
+        console.error('Failed to initialize face detector, continuing without detection:', cpuError);
+        detector = undefined;
+      }
     }
   }
   return detector;
