@@ -136,18 +136,27 @@ const Index = () => {
 
   const handleDownload = async () => {
     const cleanPhotos = photos.filter((p) => !p.hasEx);
+    const archivedPhotos = photos.filter((p) => p.hasEx);
     
-    if (cleanPhotos.length === 0) return;
+    if (photos.length === 0) return;
 
     try {
       const zip = new JSZip();
       
-      // Add each photo to the zip
+      // Add clean photos to "clean" folder
       for (let i = 0; i < cleanPhotos.length; i++) {
         const photo = cleanPhotos[i];
         const response = await fetch(photo.url);
         const blob = await response.blob();
-        zip.file(`photo-${i + 1}.jpg`, blob);
+        zip.file(`clean/photo-${i + 1}.jpg`, blob);
+      }
+
+      // Add archived photos to "archived" folder
+      for (let i = 0; i < archivedPhotos.length; i++) {
+        const photo = archivedPhotos[i];
+        const response = await fetch(photo.url);
+        const blob = await response.blob();
+        zip.file(`archived/photo-${i + 1}.jpg`, blob);
       }
 
       // Generate zip and download
@@ -155,7 +164,7 @@ const Index = () => {
       const url = URL.createObjectURL(content);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "delete-my-ex-clean-photos.zip";
+      a.download = "delete-my-ex-photos.zip";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -163,7 +172,7 @@ const Index = () => {
 
       toast({
         title: "Downloaded!",
-        description: "Your clean photos are ready",
+        description: `${cleanPhotos.length} clean + ${archivedPhotos.length} archived photos`,
       });
     } catch (error) {
       console.error(error);
