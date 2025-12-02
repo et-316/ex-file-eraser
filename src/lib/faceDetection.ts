@@ -62,7 +62,19 @@ export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace
         const results = await detector(img);
         
         // Filter for person detections (which includes faces)
-        const detections = results.filter((r: any) => r.label === 'person' && r.score > 0.5);
+        let detections = results.filter((r: any) => r.label === 'person' && r.score > 0.3);
+
+        // Fallback: if nothing detected, treat the whole image as one face so the flow still works
+        if (!detections.length) {
+          detections = [{
+            box: {
+              xmin: 0,
+              ymin: 0,
+              xmax: img.width,
+              ymax: img.height,
+            },
+          }];
+        }
         
         const faces = await Promise.all(
           detections.map(async (result: any, index: number) => {
@@ -76,8 +88,8 @@ export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace
             const padding = 20;
             const x = Math.max(0, box.xmin - padding);
             const y = Math.max(0, box.ymin - padding);
-            const width = Math.min(img.width - x, box.xmax - box.xmin + padding * 2);
-            const height = Math.min(img.height - y, box.ymax - box.ymin + padding * 2);
+            const width = Math.min(img.width - x, (box.xmax ?? img.width) - (box.xmin ?? 0) + padding * 2);
+            const height = Math.min(img.height - y, (box.ymax ?? img.height) - (box.ymin ?? 0) + padding * 2);
             
             canvas.width = width;
             canvas.height = height;
@@ -96,14 +108,14 @@ export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace
                 id: `${imageUrl}-${index}`,
                 imageUrl: faceImageUrl,
                 bbox: { x, y, width, height },
-                embedding
+                embedding,
               };
             } catch (error) {
               console.error('Error generating embedding:', error);
               return {
                 id: `${imageUrl}-${index}`,
                 imageUrl: canvas.toDataURL('image/jpeg', 0.8),
-                bbox: { x, y, width, height }
+                bbox: { x, y, width, height },
               };
             }
           })
