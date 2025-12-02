@@ -1,10 +1,11 @@
-import { pipeline, env } from '@huggingface/transformers';
+import { pipeline, env, RawImage } from '@huggingface/transformers';
 
 // Configure transformers.js
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
 let detector: any = null;
+let embedder: any = null;
 
 export const initFaceDetector = async () => {
   if (!detector) {
@@ -15,14 +16,43 @@ export const initFaceDetector = async () => {
   return detector;
 };
 
+export const initFaceEmbedder = async () => {
+  if (!embedder) {
+    // Using MobileFaceNet for face embeddings
+    embedder = await pipeline('feature-extraction', 'Xenova/mobilefacenet', {
+      device: 'webgpu',
+    });
+  }
+  return embedder;
+};
+
+// Compute cosine similarity between two embeddings
+export const cosineSimilarity = (a: number[], b: number[]): number => {
+  if (a.length !== b.length) return 0;
+  
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+};
+
 export interface DetectedFace {
   id: string;
   imageUrl: string;
   bbox: { x: number; y: number; width: number; height: number };
+  embedding?: number[]; // Face embedding for similarity matching
 }
 
 export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace[]> => {
   const detector = await initFaceDetector();
+  const embedder = await initFaceEmbedder();
   
   return new Promise((resolve) => {
     const img = new Image();
@@ -32,9 +62,10 @@ export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace
         const results = await detector(img);
         
         // Filter for person detections (which includes faces)
-        const faces = results
-          .filter((r: any) => r.label === 'person' && r.score > 0.5)
-          .map((result: any, index: number) => {
+        const detections = results.filter((r: any) => r.label === 'person' && r.score > 0.5);
+        
+        const faces = await Promise.all(
+          detections.map(async (result: any, index: number) => {
             const { box } = result;
             
             // Create a canvas to extract the face region
@@ -52,15 +83,33 @@ export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace
             canvas.height = height;
             ctx.drawImage(img, x, y, width, height, 0, 0, width, height);
             
-            return {
-              id: `${imageUrl}-${index}`,
-              imageUrl: canvas.toDataURL('image/jpeg', 0.8),
-              bbox: { x, y, width, height }
-            };
+            try {
+              // Generate face embedding for accurate matching
+              const faceImageUrl = canvas.toDataURL('image/jpeg', 0.8);
+              const rawImage = await RawImage.fromURL(faceImageUrl);
+              const embeddingResult = await embedder(rawImage);
+              
+              // Extract embedding array
+              const embedding = Array.from(embeddingResult.data);
+              
+              return {
+                id: `${imageUrl}-${index}`,
+                imageUrl: faceImageUrl,
+                bbox: { x, y, width, height },
+                embedding
+              };
+            } catch (error) {
+              console.error('Error generating embedding:', error);
+              return {
+                id: `${imageUrl}-${index}`,
+                imageUrl: canvas.toDataURL('image/jpeg', 0.8),
+                bbox: { x, y, width, height }
+              };
+            }
           })
-          .filter(Boolean);
+        );
         
-        resolve(faces);
+        resolve(faces.filter(Boolean) as DetectedFace[]);
       } catch (error) {
         console.error('Error detecting faces:', error);
         resolve([]);
