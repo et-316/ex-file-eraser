@@ -1,4 +1,4 @@
-import { Download, Archive } from "lucide-react";
+import { Download, Archive, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Photo {
@@ -10,9 +10,10 @@ interface Photo {
 interface PhotoGalleryProps {
   photos: Photo[];
   onDownload: () => void;
+  onDelete?: () => void;
 }
 
-export const PhotoGallery = ({ photos, onDownload }: PhotoGalleryProps) => {
+export const PhotoGallery = ({ photos, onDownload, onDelete }: PhotoGalleryProps) => {
   const cleanPhotos = photos.filter((p) => !p.hasEx);
   const archivedPhotos = photos.filter((p) => p.hasEx);
 
@@ -84,9 +85,9 @@ export const PhotoGallery = ({ photos, onDownload }: PhotoGalleryProps) => {
         </div>
       )}
 
-      {/* Download Button */}
+      {/* Download & Delete Buttons */}
       {photos.length > 0 && (
-        <div className="flex justify-center pt-4">
+        <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
           <Button
             onClick={onDownload}
             size="lg"
@@ -95,6 +96,18 @@ export const PhotoGallery = ({ photos, onDownload }: PhotoGalleryProps) => {
             <Download className="w-5 h-5 mr-2" />
             Download All ({cleanPhotos.length} clean + {archivedPhotos.length} archived)
           </Button>
+
+          {onDelete && archivedPhotos.length > 0 && (
+            <Button
+              onClick={onDelete}
+              size="lg"
+              variant="destructive"
+              className="font-semibold px-8 shadow-soft"
+            >
+              <Trash2 className="w-5 h-5 mr-2" />
+              Delete {archivedPhotos.length} from Library
+            </Button>
+          )}
         </div>
       )}
     </div>
