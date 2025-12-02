@@ -4,10 +4,11 @@ const config: CapacitorConfig = {
   appId: 'app.lovable.deletemyex',
   appName: 'Delete My Ex',
   webDir: 'dist',
-  server: {
-    url: 'https://725b9661-eea8-4b25-a09a-83c136bbc0ec.lovableproject.com?forceHideBadge=true',
-    cleartext: true
-  },
+  // Commented out for native build - uncomment for hot-reload during development
+  // server: {
+  //   url: 'https://725b9661-eea8-4b25-a09a-83c136bbc0ec.lovableproject.com?forceHideBadge=true',
+  //   cleartext: true
+  // },
   plugins: {
     Camera: {
       iosPermissions: {
