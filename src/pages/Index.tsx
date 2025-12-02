@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Heart, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { detectFacesInImage, processBatch, DetectedFace, cosineSimilarity } from "@/lib/faceDetection";
+import DeleteMyEx from "@/lib/nativePhotoDelete";
 import JSZip from "jszip";
 import { Progress } from "@/components/ui/progress";
 
@@ -16,6 +17,7 @@ interface Photo {
   id: string;
   url: string;
   hasEx: boolean;
+  assetId?: string; // iOS photo library asset identifier
 }
 
 interface ProcessingProgress {
@@ -34,9 +36,9 @@ const Index = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { toast } = useToast();
 
-  const handleFilesSelected = async (files: File[]) => {
+  const handleFilesSelected = async (photosWithAssetIds: { file: File; assetId?: string }[]) => {
     setLoading(true);
-    setProgress({ current: 0, total: files.length, stage: "detecting" });
+    setProgress({ current: 0, total: photosWithAssetIds.length, stage: "detecting" });
     
     toast({
       title: "Processing images...",
@@ -46,7 +48,7 @@ const Index = () => {
     try {
       // Convert files to URLs
       const imageUrls = await Promise.all(
-        files.map((file) => {
+        photosWithAssetIds.map(({ file }) => {
           return new Promise<string>((resolve) => {
             const reader = new FileReader();
             reader.onload = (e) => resolve(e.target?.result as string);
@@ -55,11 +57,12 @@ const Index = () => {
         })
       );
 
-      // Store photos
+      // Store photos with asset IDs
       const photoData = imageUrls.map((url, idx) => ({
         id: `photo-${idx}`,
         url,
         hasEx: false,
+        assetId: photosWithAssetIds[idx].assetId,
       }));
       setPhotos(photoData);
 
@@ -230,17 +233,44 @@ const Index = () => {
     setShowDeleteConfirm(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     setShowDeleteConfirm(false);
+    setLoading(true);
     
-    toast({
-      title: "Important Note",
-      description: "Due to iOS security restrictions, web apps cannot directly delete photos from your Photo Library. Please manually delete the flagged photos from your Photos app, or download the clean photos and delete the originals.",
-      duration: 8000,
-    });
+    try {
+      const photosToDelete = photos.filter((p) => p.hasEx && p.assetId);
+      const assetIds = photosToDelete.map((p) => p.assetId!);
+      
+      if (assetIds.length === 0) {
+        toast({
+          title: "Cannot Delete",
+          description: "Photos were not loaded from your library, so they cannot be deleted. Please select photos from your Photo Library.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    // In a true native iOS app with a custom plugin, this is where we'd call:
-    // await deletePhotosFromLibrary(photos.filter(p => p.hasEx).map(p => p.id));
+      const result = await DeleteMyEx.deletePhotos({ identifiers: assetIds });
+      
+      if (result.success) {
+        toast({
+          title: "Photos Deleted!",
+          description: `Successfully moved ${result.deletedCount} photo${result.deletedCount !== 1 ? 's' : ''} to Recently Deleted`,
+        });
+        
+        // Update photos state to remove deleted ones
+        setPhotos(photos.filter((p) => !p.hasEx));
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast({
+        title: "Delete Failed",
+        description: error instanceof Error ? error.message : "Failed to delete photos. Please check permissions.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

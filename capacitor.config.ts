@@ -12,9 +12,12 @@ const config: CapacitorConfig = {
     Camera: {
       iosPermissions: {
         camera: 'This app needs camera access to take photos',
-        photos: 'This app needs photo library access to select photos'
+        photos: 'This app needs photo library access to select and manage photos'
       }
     }
+  },
+  ios: {
+    contentInset: 'always'
   }
 };
 
