@@ -34,6 +34,7 @@ const Index = () => {
   const [progress, setProgress] = useState<ProcessingProgress | null>(null);
   const [selectedExId, setSelectedExId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showHideConfirm, setShowHideConfirm] = useState(false);
   const { toast } = useToast();
 
   const handleFilesSelected = async (photosWithAssetIds: { file: File; assetId?: string }[]) => {
@@ -229,8 +230,52 @@ const Index = () => {
     setSelectedExId(null);
   };
 
+  const handleHidePhotos = () => {
+    setShowHideConfirm(true);
+  };
+
   const handleDeletePhotos = () => {
     setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmHide = async () => {
+    setShowHideConfirm(false);
+    setLoading(true);
+    
+    try {
+      const photosToHide = photos.filter((p) => p.hasEx && p.assetId);
+      const assetIds = photosToHide.map((p) => p.assetId!);
+      
+      if (assetIds.length === 0) {
+        toast({
+          title: "Cannot Hide",
+          description: "Photos were not loaded from your library, so they cannot be hidden. Please select photos from your Photo Library.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const result = await DeleteMyEx.hidePhotos({ identifiers: assetIds });
+      
+      if (result.success) {
+        toast({
+          title: "Photos Archived!",
+          description: `Successfully moved ${result.hiddenCount} photo${result.hiddenCount !== 1 ? 's' : ''} to your Hidden album`,
+        });
+        
+        // Update photos state to remove hidden ones
+        setPhotos(photos.filter((p) => !p.hasEx));
+      }
+    } catch (error) {
+      console.error("Hide error:", error);
+      toast({
+        title: "Archive Failed",
+        description: error instanceof Error ? error.message : "Failed to hide photos. Please check permissions.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -339,6 +384,7 @@ const Index = () => {
             <PhotoGallery 
               photos={photos} 
               onDownload={handleDownload}
+              onHide={handleHidePhotos}
               onDelete={handleDeletePhotos}
             />
             <DeleteConfirmation
@@ -346,6 +392,14 @@ const Index = () => {
               open={showDeleteConfirm}
               onConfirm={handleConfirmDelete}
               onCancel={() => setShowDeleteConfirm(false)}
+              mode="delete"
+            />
+            <DeleteConfirmation
+              photos={photos}
+              open={showHideConfirm}
+              onConfirm={handleConfirmHide}
+              onCancel={() => setShowHideConfirm(false)}
+              mode="hide"
             />
           </>
         )}

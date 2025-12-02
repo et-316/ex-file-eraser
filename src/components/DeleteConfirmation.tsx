@@ -1,4 +1,5 @@
-import { AlertTriangle, Trash2 } from "lucide-react";
+import * as React from "react";
+import { AlertTriangle, Trash2, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -22,6 +23,7 @@ interface DeleteConfirmationProps {
   open: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  mode: "delete" | "hide";
 }
 
 export const DeleteConfirmation = ({
@@ -29,8 +31,18 @@ export const DeleteConfirmation = ({
   open,
   onConfirm,
   onCancel,
+  mode,
 }: DeleteConfirmationProps) => {
   const photosToDelete = photos.filter((p) => p.hasEx);
+  
+  const isDeleteMode = mode === "delete";
+  const icon = isDeleteMode ? Trash2 : Archive;
+  const title = isDeleteMode 
+    ? `Permanently Delete ${photosToDelete.length} Photo${photosToDelete.length !== 1 ? 's' : ''}?`
+    : `Archive ${photosToDelete.length} Photo${photosToDelete.length !== 1 ? 's' : ''}?`;
+  const description = isDeleteMode
+    ? "⚠️ This action moves photos to Recently Deleted. After 30 days, they will be PERMANENTLY DELETED and cannot be recovered."
+    : "These photos will be moved to your iPhone's Hidden album permanently. You can find them in the Hidden album later if needed.";
 
   return (
     <AlertDialog open={open} onOpenChange={(open) => !open && onCancel()}>
@@ -38,11 +50,10 @@ export const DeleteConfirmation = ({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2 text-xl">
             <AlertTriangle className="w-6 h-6 text-destructive" />
-            Delete {photosToDelete.length} Photo{photosToDelete.length !== 1 ? 's' : ''}?
+            {title}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-base">
-            These photos will be moved to your iPhone's "Recently Deleted" folder.
-            You can recover them within 30 days.
+          <AlertDialogDescription className="text-base font-semibold">
+            {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -59,7 +70,7 @@ export const DeleteConfirmation = ({
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-destructive/10 flex items-center justify-center">
-                  <Trash2 className="w-6 h-6 text-destructive/60" />
+                  {React.createElement(icon, { className: "w-6 h-6 text-destructive/60" })}
                 </div>
               </div>
             ))}
@@ -72,9 +83,12 @@ export const DeleteConfirmation = ({
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="sm:flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            className={isDeleteMode 
+              ? "sm:flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              : "sm:flex-1 bg-secondary hover:bg-secondary/90 text-secondary-foreground"
+            }
           >
-            Delete {photosToDelete.length} Photo{photosToDelete.length !== 1 ? 's' : ''}
+            {isDeleteMode ? 'Delete' : 'Archive'} {photosToDelete.length} Photo{photosToDelete.length !== 1 ? 's' : ''}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
