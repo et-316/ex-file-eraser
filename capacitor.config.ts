@@ -7,6 +7,14 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://725b9661-eea8-4b25-a09a-83c136bbc0ec.lovableproject.com?forceHideBadge=true',
     cleartext: true
+  },
+  plugins: {
+    Camera: {
+      iosPermissions: {
+        camera: 'This app needs camera access to take photos',
+        photos: 'This app needs photo library access to select photos'
+      }
+    }
   }
 };
 
