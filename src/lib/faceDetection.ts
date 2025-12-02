@@ -25,17 +25,23 @@ export const initFaceDetector = async () => {
 };
 
 export const initFaceEmbedder = async () => {
-  if (!embedder) {
+  // Embeddings are optional: if model fails to load, we continue without them
+  if (embedder === null) {
     try {
-      // Using MobileFaceNet for face embeddings
+      // Using MobileFaceNet for face embeddings (WebGPU when available)
       embedder = await pipeline('feature-extraction', 'Xenova/mobilefacenet', {
         device: 'webgpu',
       });
     } catch (error) {
       console.warn('WebGPU not available for embedder, falling back to CPU:', error);
-      embedder = await pipeline('feature-extraction', 'Xenova/mobilefacenet', {
-        device: 'cpu',
-      });
+      try {
+        embedder = await pipeline('feature-extraction', 'Xenova/mobilefacenet', {
+          device: 'cpu',
+        });
+      } catch (cpuError) {
+        console.error('Failed to initialize face embedder, continuing without embeddings:', cpuError);
+        embedder = undefined;
+      }
     }
   }
   return embedder;
@@ -138,13 +144,16 @@ export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace
               const quality = assessFaceQuality(canvas);
               
               try {
-                // Generate face embedding for accurate matching
+                // Generate face embedding for accurate matching (if embedder available)
                 const faceImageUrl = canvas.toDataURL('image/jpeg', 0.8);
-                const rawImage = await RawImage.fromURL(faceImageUrl);
-                const embeddingResult = await embedder(rawImage);
-                
-                // Extract embedding array
-                const embedding = Array.from(embeddingResult.data);
+
+                let embedding: number[] | undefined = undefined;
+                if (embedder) {
+                  const rawImage = await RawImage.fromURL(faceImageUrl);
+                  const embeddingResult = await embedder(rawImage);
+                  // Extract embedding array
+                  embedding = Array.from(embeddingResult.data);
+                }
                 
                 return {
                   id: `${imageUrl}-${index}`,
@@ -155,7 +164,7 @@ export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace
                   quality,
                 };
               } catch (error) {
-                console.error('Error generating embedding:', error);
+                console.error('Error generating embedding (falling back to face only):', error);
                 return {
                   id: `${imageUrl}-${index}`,
                   imageUrl: canvas.toDataURL('image/jpeg', 0.8),
