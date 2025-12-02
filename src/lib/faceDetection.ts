@@ -9,19 +9,33 @@ let embedder: any = null;
 
 export const initFaceDetector = async () => {
   if (!detector) {
-    detector = await pipeline('object-detection', 'Xenova/detr-resnet-50', {
-      device: 'webgpu',
-    });
+    try {
+      detector = await pipeline('object-detection', 'Xenova/detr-resnet-50', {
+        device: 'webgpu',
+      });
+    } catch (error) {
+      console.warn('WebGPU not available, falling back to CPU:', error);
+      detector = await pipeline('object-detection', 'Xenova/detr-resnet-50', {
+        device: 'cpu',
+      });
+    }
   }
   return detector;
 };
 
 export const initFaceEmbedder = async () => {
   if (!embedder) {
-    // Using MobileFaceNet for face embeddings
-    embedder = await pipeline('feature-extraction', 'Xenova/mobilefacenet', {
-      device: 'webgpu',
-    });
+    try {
+      // Using MobileFaceNet for face embeddings
+      embedder = await pipeline('feature-extraction', 'Xenova/mobilefacenet', {
+        device: 'webgpu',
+      });
+    } catch (error) {
+      console.warn('WebGPU not available for embedder, falling back to CPU:', error);
+      embedder = await pipeline('feature-extraction', 'Xenova/mobilefacenet', {
+        device: 'cpu',
+      });
+    }
   }
   return embedder;
 };
@@ -51,10 +65,11 @@ export interface DetectedFace {
 }
 
 export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace[]> => {
-  const detector = await initFaceDetector();
-  const embedder = await initFaceEmbedder();
-  
-  return new Promise((resolve) => {
+  try {
+    const detector = await initFaceDetector();
+    const embedder = await initFaceEmbedder();
+    
+    return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = async () => {
@@ -127,9 +142,13 @@ export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace
         resolve([]);
       }
     };
-    img.onerror = () => resolve([]);
-    img.src = imageUrl;
-  });
+      img.onerror = () => resolve([]);
+      img.src = imageUrl;
+    });
+  } catch (error) {
+    console.error('Critical error in detectFacesInImage:', error);
+    return [];
+  }
 };
 
 export const processBatch = async (
