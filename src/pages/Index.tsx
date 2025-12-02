@@ -2,6 +2,7 @@ import { useState } from "react";
 import { UploadZone } from "@/components/UploadZone";
 import { FaceSelector } from "@/components/FaceSelector";
 import { PhotoGallery } from "@/components/PhotoGallery";
+import { DeleteConfirmation } from "@/components/DeleteConfirmation";
 import { Button } from "@/components/ui/button";
 import { Heart, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +31,7 @@ const Index = () => {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<ProcessingProgress | null>(null);
   const [selectedExId, setSelectedExId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { toast } = useToast();
 
   const handleFilesSelected = async (files: File[]) => {
@@ -224,6 +226,23 @@ const Index = () => {
     setSelectedExId(null);
   };
 
+  const handleDeletePhotos = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    setShowDeleteConfirm(false);
+    
+    toast({
+      title: "Important Note",
+      description: "Due to iOS security restrictions, web apps cannot directly delete photos from your Photo Library. Please manually delete the flagged photos from your Photos app, or download the clean photos and delete the originals.",
+      duration: 8000,
+    });
+
+    // In a true native iOS app with a custom plugin, this is where we'd call:
+    // await deletePhotosFromLibrary(photos.filter(p => p.hasEx).map(p => p.id));
+  };
+
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       {/* Header */}
@@ -286,7 +305,19 @@ const Index = () => {
         )}
         
         {step === "results" && (
-          <PhotoGallery photos={photos} onDownload={handleDownload} />
+          <>
+            <PhotoGallery 
+              photos={photos} 
+              onDownload={handleDownload}
+              onDelete={handleDeletePhotos}
+            />
+            <DeleteConfirmation
+              photos={photos}
+              open={showDeleteConfirm}
+              onConfirm={handleConfirmDelete}
+              onCancel={() => setShowDeleteConfirm(false)}
+            />
+          </>
         )}
       </div>
 
