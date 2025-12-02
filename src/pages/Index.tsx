@@ -5,7 +5,7 @@ import { PhotoGallery } from "@/components/PhotoGallery";
 import { Button } from "@/components/ui/button";
 import { Heart, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { detectFacesInImage, processBatch, DetectedFace } from "@/lib/faceDetection";
+import { detectFacesInImage, processBatch, DetectedFace, cosineSimilarity } from "@/lib/faceDetection";
 import JSZip from "jszip";
 
 type Step = "upload" | "select" | "results";
@@ -55,14 +55,21 @@ const Index = () => {
       const results = await processBatch(imageUrls);
       const allFaces = results.flatMap((r) => r.faces);
 
-      // Remove duplicates by comparing face positions
+      // Remove duplicates using embedding similarity if available
       const uniqueFaces = allFaces.filter((face, index, self) => 
         index === self.findIndex((f) => {
-          const isSimilar = 
-            Math.abs(f.bbox.x - face.bbox.x) < 50 &&
-            Math.abs(f.bbox.y - face.bbox.y) < 50 &&
-            Math.abs(f.bbox.width - face.bbox.width) < 50;
-          return isSimilar;
+          if (face.embedding && f.embedding) {
+            // Use cosine similarity for deduplication
+            const similarity = cosineSimilarity(face.embedding, f.embedding);
+            return similarity > 0.8; // Higher threshold for deduplication
+          } else {
+            // Fallback to bbox comparison
+            const isSimilar = 
+              Math.abs(f.bbox.x - face.bbox.x) < 50 &&
+              Math.abs(f.bbox.y - face.bbox.y) < 50 &&
+              Math.abs(f.bbox.width - face.bbox.width) < 50;
+            return isSimilar;
+          }
         })
       );
 
@@ -104,12 +111,21 @@ const Index = () => {
       
       const updatedPhotos = photos.map((photo, idx) => {
         const photoFaces = results[idx].faces;
+        
+        // Use embedding similarity if available, otherwise fall back to bbox comparison
         const hasEx = photoFaces.some((face) => {
-          // Simple similarity check based on bbox
-          return (
-            Math.abs(face.bbox.width - selectedFace.bbox.width) < 100 &&
-            Math.abs(face.bbox.height - selectedFace.bbox.height) < 100
-          );
+          if (selectedFace.embedding && face.embedding) {
+            // Use cosine similarity for accurate face matching
+            const similarity = cosineSimilarity(selectedFace.embedding, face.embedding);
+            // Threshold of 0.6 works well for face matching
+            return similarity > 0.6;
+          } else {
+            // Fallback to bounding box comparison
+            return (
+              Math.abs(face.bbox.width - selectedFace.bbox.width) < 100 &&
+              Math.abs(face.bbox.height - selectedFace.bbox.height) < 100
+            );
+          }
         });
         return { ...photo, hasEx };
       });
