@@ -86,12 +86,11 @@ public class DeleteMyExPlugin: CAPPlugin {
         }
         
         PHPhotoLibrary.shared().performChanges({
-            // Hide the assets instead of deleting
-            let assets = NSMutableArray()
+            // Hide each asset individually
             fetchResult.enumerateObjects { asset, _, _ in
-                assets.add(asset)
+                let request = PHAssetChangeRequest(for: asset)
+                request.isHidden = true
             }
-            PHAssetChangeRequest.hideAssets(assets as! [PHAsset])
         }) { success, error in
             if success {
                 call.resolve([

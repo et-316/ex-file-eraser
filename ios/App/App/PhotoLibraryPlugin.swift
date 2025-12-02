@@ -118,10 +118,21 @@ public class PhotoLibraryPlugin: CAPPlugin {
     }
     
     private func performHide(identifiers: [String], call: CAPPluginCall) {
-        let assets = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: nil)
+        let fetchOptions = PHFetchOptions()
+        fetchOptions.includeHiddenAssets = true
+        let assets = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: fetchOptions)
+        
+        if assets.count == 0 {
+            call.reject("No photos found with provided identifiers")
+            return
+        }
         
         PHPhotoLibrary.shared().performChanges({
-            PHAssetChangeRequest.hideAssets(assets as NSFastEnumeration)
+            // Hide each asset individually by setting isHidden property
+            assets.enumerateObjects { asset, _, _ in
+                let request = PHAssetChangeRequest(for: asset)
+                request.isHidden = true
+            }
         }) { success, error in
             if success {
                 call.resolve(["success": true, "hiddenCount": assets.count])
