@@ -27,47 +27,78 @@ public class PhotoLibraryPlugin: CAPPlugin {
     private func fetchAllPhotos(includeHidden: Bool, call: CAPPluginCall) {
         let fetchOptions = PHFetchOptions()
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        
+        // Smart filtering: exclude screenshots and very old photos
+        var predicates: [NSPredicate] = []
         if !includeHidden {
-            fetchOptions.predicate = NSPredicate(format: "isHidden == NO")
+            predicates.append(NSPredicate(format: "isHidden == NO"))
         }
+        // Exclude screenshots
+        predicates.append(NSPredicate(format: "(pixelWidth / pixelHeight) < 3 AND (pixelHeight / pixelWidth) < 3"))
+        // Only photos from last 3 years
+        let threeYearsAgo = Date().addingTimeInterval(-3 * 365 * 24 * 60 * 60)
+        predicates.append(NSPredicate(format: "creationDate > %@", threeYearsAgo as NSDate))
+        
+        fetchOptions.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
         
         let assets = PHAsset.fetchAssets(with: .image, options: fetchOptions)
         var photoAssets: [[String: Any]] = []
+        let photoAssetsLock = NSLock()
         
         let imageManager = PHImageManager.default()
         let requestOptions = PHImageRequestOptions()
         requestOptions.isSynchronous = false
-        requestOptions.deliveryMode = .fastFormat
+        requestOptions.deliveryMode = .highQualityFormat
         requestOptions.resizeMode = .fast
+        requestOptions.isNetworkAccessAllowed = true
+        
+        // Downsample to 1024px max dimension for faster processing
+        let targetSize = CGSize(width: 1024, height: 1024)
         
         let group = DispatchGroup()
-        
-        // Process ALL photos in the library
         let totalCount = assets.count
+        let batchSize = 10 // Process 10 photos in parallel
         
-        for i in 0..<totalCount {
-            let asset = assets.object(at: i)
-            group.enter()
+        // Process in batches for parallel execution
+        for batchStart in stride(from: 0, to: totalCount, by: batchSize) {
+            let batchEnd = min(batchStart + batchSize, totalCount)
             
-            imageManager.requestImageDataAndOrientation(for: asset, options: requestOptions) { data, _, _, _ in
-                if let data = data {
-                    let base64 = data.base64EncodedString()
-                    let photoAsset: [String: Any] = [
-                        "identifier": asset.localIdentifier,
-                        "uri": "data:image/jpeg;base64,\(base64)",
-                        "creationDate": asset.creationDate?.timeIntervalSince1970 ?? 0,
-                        "modificationDate": asset.modificationDate?.timeIntervalSince1970 ?? 0,
-                        "isHidden": asset.isHidden
-                    ]
-                    photoAssets.append(photoAsset)
+            for i in batchStart..<batchEnd {
+                let asset = assets.object(at: i)
+                group.enter()
+                
+                // Use requestImage instead of requestImageData for automatic downsampling
+                imageManager.requestImage(for: asset, targetSize: targetSize, contentMode: .aspectFit, options: requestOptions) { image, _ in
+                    if let image = image, let data = image.jpegData(compressionQuality: 0.8) {
+                        let base64 = data.base64EncodedString()
+                        let photoAsset: [String: Any] = [
+                            "identifier": asset.localIdentifier,
+                            "uri": "data:image/jpeg;base64,\(base64)",
+                            "creationDate": asset.creationDate?.timeIntervalSince1970 ?? 0,
+                            "modificationDate": asset.modificationDate?.timeIntervalSince1970 ?? 0,
+                            "isHidden": asset.isHidden
+                        ]
+                        
+                        photoAssetsLock.lock()
+                        photoAssets.append(photoAsset)
+                        photoAssetsLock.unlock()
+                    }
+                    group.leave()
                 }
-                group.leave()
             }
+            
+            // Wait for each batch to complete before starting next (prevents memory issues)
+            group.wait()
         }
         
-        group.notify(queue: .main) {
-            call.resolve(["photos": photoAssets])
+        // Sort by creation date descending
+        let sortedPhotos = photoAssets.sorted { 
+            let date1 = $0["creationDate"] as? TimeInterval ?? 0
+            let date2 = $1["creationDate"] as? TimeInterval ?? 0
+            return date1 > date2
         }
+        
+        call.resolve(["photos": sortedPhotos])
     }
     
     @objc func hidePhotos(_ call: CAPPluginCall) {
