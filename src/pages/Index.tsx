@@ -7,6 +7,7 @@ import { Heart, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { detectFacesInImage, processBatch, DetectedFace, cosineSimilarity } from "@/lib/faceDetection";
 import JSZip from "jszip";
+import { Progress } from "@/components/ui/progress";
 
 type Step = "upload" | "select" | "results";
 
@@ -16,16 +17,25 @@ interface Photo {
   hasEx: boolean;
 }
 
+interface ProcessingProgress {
+  current: number;
+  total: number;
+  stage: "detecting" | "filtering";
+}
+
 const Index = () => {
   const [step, setStep] = useState<Step>("upload");
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [faces, setFaces] = useState<DetectedFace[]>([]);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<ProcessingProgress | null>(null);
   const [selectedExId, setSelectedExId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleFilesSelected = async (files: File[]) => {
     setLoading(true);
+    setProgress({ current: 0, total: files.length, stage: "detecting" });
+    
     toast({
       title: "Processing images...",
       description: "Detecting faces in your photos",
@@ -51,8 +61,10 @@ const Index = () => {
       }));
       setPhotos(photoData);
 
-      // Detect faces in all images
-      const results = await processBatch(imageUrls);
+      // Detect faces in all images with progress tracking
+      const results = await processBatch(imageUrls, (current, total) => {
+        setProgress({ current, total, stage: "detecting" });
+      });
       const allFaces = results.flatMap((r) => r.faces);
 
       // Remove duplicates using embedding similarity if available
@@ -89,11 +101,13 @@ const Index = () => {
       });
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
   const handleSelectEx = async (faceId: string) => {
     setLoading(true);
+    setProgress({ current: 0, total: photos.length, stage: "filtering" });
     setSelectedExId(faceId);
 
     toast({
@@ -106,8 +120,10 @@ const Index = () => {
       const selectedFace = faces.find((f) => f.id === faceId);
       if (!selectedFace) return;
 
-      // Re-detect faces in each photo and mark photos containing the ex
-      const results = await processBatch(photos.map((p) => p.url));
+      // Re-detect faces in each photo with progress tracking
+      const results = await processBatch(photos.map((p) => p.url), (current, total) => {
+        setProgress({ current, total, stage: "filtering" });
+      });
       
       const updatedPhotos = photos.map((photo, idx) => {
         const photoFaces = results[idx].faces;
@@ -147,6 +163,7 @@ const Index = () => {
       });
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -222,8 +239,36 @@ const Index = () => {
         </p>
       </div>
 
-      {/* Loading Overlay */}
-      {loading && (
+      {/* Loading Overlay with Progress */}
+      {loading && progress && (
+        <div className="fixed inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="text-center space-y-6 max-w-md w-full px-6">
+            <Loader2 className="w-16 h-16 animate-spin text-primary mx-auto" />
+            
+            <div className="space-y-2">
+              <p className="text-xl font-semibold">
+                {progress.stage === "detecting" ? "Detecting Faces" : "Filtering Photos"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Processing {progress.current} of {progress.total} photos...
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Progress 
+                value={(progress.current / progress.total) * 100} 
+                className="h-3"
+              />
+              <p className="text-xs text-muted-foreground">
+                {Math.round((progress.current / progress.total) * 100)}% complete
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Simple Loading Overlay (fallback) */}
+      {loading && !progress && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="text-center space-y-4">
             <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />

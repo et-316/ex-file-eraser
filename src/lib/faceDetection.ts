@@ -120,11 +120,20 @@ export const detectFacesInImage = async (imageUrl: string): Promise<DetectedFace
   });
 };
 
-export const processBatch = async (imageUrls: string[]): Promise<{ url: string; faces: DetectedFace[] }[]> => {
+export const processBatch = async (
+  imageUrls: string[],
+  onProgress?: (current: number, total: number) => void
+): Promise<{ url: string; faces: DetectedFace[] }[]> => {
   const results = [];
-  for (const url of imageUrls) {
+  for (let i = 0; i < imageUrls.length; i++) {
+    const url = imageUrls[i];
     const faces = await detectFacesInImage(url);
     results.push({ url, faces });
+    
+    // Report progress
+    if (onProgress) {
+      onProgress(i + 1, imageUrls.length);
+    }
   }
   return results;
 };
