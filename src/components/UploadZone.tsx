@@ -5,8 +5,13 @@ import { CameraResultType, CameraSource } from "@capacitor/camera";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 
+interface PhotoWithAssetId {
+  file: File;
+  assetId?: string;
+}
+
 interface UploadZoneProps {
-  onFilesSelected: (files: File[]) => void;
+  onFilesSelected: (photos: PhotoWithAssetId[]) => void;
 }
 
 export const UploadZone = ({ onFilesSelected }: UploadZoneProps) => {
@@ -23,16 +28,28 @@ export const UploadZone = ({ onFilesSelected }: UploadZoneProps) => {
         return;
       }
 
-      // Convert photos to File objects
-      const files = await Promise.all(
+      // Convert photos to File objects and preserve asset IDs
+      const filesWithAssetIds = await Promise.all(
         photos.photos.map(async (photo, index) => {
           const response = await fetch(photo.webPath!);
           const blob = await response.blob();
-          return new File([blob], `photo-${index}.jpg`, { type: "image/jpeg" });
+          const file = new File([blob], `photo-${index}.jpg`, { type: "image/jpeg" });
+          
+          // Extract asset ID from photo path if available
+          // iOS format: "assets-library://asset/asset.JPG?id=XXXX&ext=JPG"
+          let assetId: string | undefined;
+          if (photo.path && photo.path.includes('id=')) {
+            const match = photo.path.match(/id=([^&]+)/);
+            if (match) {
+              assetId = match[1];
+            }
+          }
+          
+          return { file, assetId };
         })
       );
 
-      onFilesSelected(files);
+      onFilesSelected(filesWithAssetIds);
     } catch (error) {
       console.error("Error picking photos:", error);
       toast({
@@ -61,7 +78,7 @@ export const UploadZone = ({ onFilesSelected }: UploadZoneProps) => {
       const blob = await response.blob();
       const file = new File([blob], "camera-photo.jpg", { type: "image/jpeg" });
 
-      onFilesSelected([file]);
+      onFilesSelected([{ file }]);
     } catch (error) {
       console.error("Error taking photo:", error);
       toast({
