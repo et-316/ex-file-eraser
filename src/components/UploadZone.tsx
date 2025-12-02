@@ -1,6 +1,7 @@
-import { ImagePlus } from "lucide-react";
-import { useCallback } from "react";
+import { ImagePlus, Upload } from "lucide-react";
+import { useCallback, useRef } from "react";
 import { Camera } from "@capacitor/camera";
+import { Capacitor } from "@capacitor/core";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 
@@ -15,6 +16,8 @@ interface UploadZoneProps {
 
 export const UploadZone = ({ onFilesSelected }: UploadZoneProps) => {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isNative = Capacitor.isNativePlatform();
 
   const handleNativePhotoPicker = useCallback(async () => {
     try {
@@ -59,6 +62,21 @@ export const UploadZone = ({ onFilesSelected }: UploadZoneProps) => {
     }
   }, [onFilesSelected, toast]);
 
+  const handleBrowserFileInput = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+
+      const filesWithAssetIds = Array.from(files).map((file) => ({
+        file,
+        assetId: undefined, // Browser uploads don't have asset IDs
+      }));
+
+      onFilesSelected(filesWithAssetIds);
+    },
+    [onFilesSelected]
+  );
+
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6 animate-fade-in">
       <div className="flex flex-col items-center justify-center w-full p-12 rounded-3xl bg-gradient-to-br from-primary/5 to-secondary/5 border-2 border-primary/20">
@@ -69,18 +87,45 @@ export const UploadZone = ({ onFilesSelected }: UploadZoneProps) => {
           </p>
         </div>
 
-        <Button
-          onClick={handleNativePhotoPicker}
-          size="lg"
-          className="h-32 px-12 flex-col gap-3 bg-gradient-primary hover:opacity-90 text-primary-foreground shadow-glow"
-        >
-          <ImagePlus className="w-12 h-12" />
-          <span className="text-xl font-semibold">Select from Photo Library</span>
-        </Button>
-        
-        <p className="text-xs text-muted-foreground mt-6 text-center max-w-sm">
-          Includes photos from all albums, including Hidden
-        </p>
+        {isNative ? (
+          <>
+            <Button
+              onClick={handleNativePhotoPicker}
+              size="lg"
+              className="h-32 px-12 flex-col gap-3 bg-gradient-primary hover:opacity-90 text-primary-foreground shadow-glow"
+            >
+              <ImagePlus className="w-12 h-12" />
+              <span className="text-xl font-semibold">Select from Photo Library</span>
+            </Button>
+            
+            <p className="text-xs text-muted-foreground mt-6 text-center max-w-sm">
+              Includes photos from all albums, including Hidden
+            </p>
+          </>
+        ) : (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleBrowserFileInput}
+              className="hidden"
+            />
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              size="lg"
+              className="h-32 px-12 flex-col gap-3 bg-gradient-primary hover:opacity-90 text-primary-foreground shadow-glow"
+            >
+              <Upload className="w-12 h-12" />
+              <span className="text-xl font-semibold">Upload Photos</span>
+            </Button>
+            
+            <p className="text-xs text-muted-foreground mt-6 text-center max-w-sm">
+              Browser mode - Delete/Hide features work on native app only
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
