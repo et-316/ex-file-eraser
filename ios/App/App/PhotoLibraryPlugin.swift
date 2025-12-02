@@ -42,10 +42,10 @@ public class PhotoLibraryPlugin: CAPPlugin {
         
         let group = DispatchGroup()
         
-        // Limit to first 500 photos to prevent overwhelming the device
-        let limit = min(assets.count, 500)
+        // Process ALL photos in the library
+        let totalCount = assets.count
         
-        for i in 0..<limit {
+        for i in 0..<totalCount {
             let asset = assets.object(at: i)
             group.enter()
             

@@ -52,8 +52,8 @@ npx cap open ios
 
 1. **"Scan Entire Photo Library"** button appears on iOS app
 2. App requests full photo library access
-3. Scans up to 500 most recent photos (to avoid overwhelming device)
-4. Detects all unique faces across your library
+3. Scans ALL photos in your library (including hidden album)
+4. Detects all unique faces across your entire library
 5. You select which face to remove
 6. App shows ALL photos containing that person
 7. Bulk hide or delete them with one tap
@@ -79,5 +79,7 @@ On web browser, you can still manually select photos - but automatic library sca
 - Use the setup instructions above to build it
 
 **Scan takes too long**
-- Limited to 500 most recent photos for performance
-- Can be adjusted in `PhotoLibraryPlugin.swift` line 43
+- Large libraries (thousands of photos) will take time
+- Face detection is processing intensive
+- The app shows progress as it scans
+- Consider closing other apps to free up memory
